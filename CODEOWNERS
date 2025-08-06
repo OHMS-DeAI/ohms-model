@@ -1,0 +1,32 @@
+# OHMS-Model Code Owners - Model Repository Canister
+
+# Global owners - require approval from at least one
+* @ohms-core-team @ohms-model-leads
+
+# Model Repository core logic
+/src/api.rs @ohms-backend-team @ohms-model-leads
+/src/domain/ @ohms-backend-team @ohms-model-leads
+/src/services/ @ohms-backend-team @ohms-model-leads
+
+# Storage and governance (critical)
+/src/services/storage.rs @ohms-storage-team @ohms-model-leads @ohms-security-team
+/src/services/governance.rs @ohms-governance-team @ohms-model-leads
+
+# Infrastructure and security
+/src/infra/ @ohms-infra-team @ohms-model-leads
+/src/infra/guards.rs @ohms-security-team @ohms-model-leads
+
+# Model Repository Candid interface
+/src/ohms_model.did @ohms-api-team @ohms-model-leads
+dfx.json @ohms-devops-team @ohms-model-leads
+
+# Documentation
+*.md @ohms-docs-team @ohms-model-leads
+
+# Build and deployment
+Cargo.toml @ohms-core-team @ohms-model-leads
+Cargo.lock @ohms-core-team @ohms-model-leads
+.github/ @ohms-devops-team @ohms-model-leads
+
+# Security (model integrity)
+SECURITY.md @ohms-security-team @ohms-model-leads

@@ -1,0 +1,58 @@
+type AuditEvent = record {
+  actor : text;
+  timestamp : nat64;
+  details : text;
+  model_id : text;
+  event_type : AuditEventType;
+};
+type AuditEventType = variant {
+  BadgeGrant;
+  ChunkAccess;
+  Activate;
+  Upload;
+  Deprecate;
+};
+type ChunkData = record { data : blob; chunk_id : text };
+type ChunkInfo = record {
+  id : text;
+  sha256 : text;
+  size : nat64;
+  offset : nat64;
+};
+type ModelManifest = record {
+  activated_at : opt nat64;
+  version : text;
+  state : ModelState;
+  digest : text;
+  chunks : vec ChunkInfo;
+  model_id : text;
+  uploaded_at : nat64;
+};
+type ModelMeta = record {
+  tokenizer_id : text;
+  vocab_size : nat32;
+  arch : text;
+  ctx_window : nat32;
+  license : text;
+  family : text;
+};
+type ModelState = variant { Active; Deprecated; Pending };
+type ModelUpload = record {
+  signature : opt text;
+  meta : ModelMeta;
+  chunks : vec ChunkData;
+  model_id : text;
+  manifest : ModelManifest;
+};
+type Result = variant { Ok : text; Err : text };
+service : () -> {
+  activate_model : (text) -> (Result);
+  add_authorized_uploader : (text) -> (Result);
+  deprecate_model : (text) -> (Result);
+  get_audit_log : () -> (vec AuditEvent) query;
+  get_chunk : (text, text) -> (opt blob) query;
+  get_manifest : (text) -> (opt ModelManifest) query;
+  health : () -> (text) query;
+  list_models : (opt ModelState) -> (vec ModelManifest) query;
+  submit_model : (ModelUpload) -> (Result);
+}
