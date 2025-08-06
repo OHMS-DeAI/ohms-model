@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "ohms-model-backend": {
+      "candid": "src/ohms-model-backend/ohms-model-backend.did",
+      "package": "ohms-model-backend",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
