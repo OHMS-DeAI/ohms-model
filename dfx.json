@@ -3,10 +3,19 @@
     "ohms_model": {
       "type": "rust",
       "package": "ohms-model",
-      "candid": "src/ohms_model.did",
-      "wasm": ".dfx/local/canisters/ohms_model/ohms_model.wasm",
-      "gzip": true,
-      "init_arg": "()"
+      "candid": "src/ohms_model.did"
+    }
+  },
+  "defaults": {
+    "build": {
+      "packtool": "",
+      "args": ""
+    },
+    "canister_http": {
+      "enabled": false
+    },
+    "rust": {
+      "args": ""
     }
   },
   "networks": {
@@ -15,13 +24,8 @@
       "type": "ephemeral"
     },
     "ic": {
-      "providers": [
-        "https://icp0.io",
-        "https://icp-api.io"
-      ],
       "type": "persistent"
     }
   },
-  "output_env_file": ".env",
   "version": 1
 }
