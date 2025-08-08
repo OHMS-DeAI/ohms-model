@@ -1,20 +1,18 @@
-# OHMS-Model
+# ohms-model — Model Repository Canister
 
-**Model Repository Canister**
-
-Governance-gated storage and serving of quantized model shards and manifests for the OHMS platform.
+Governance‑gated storage and serving of APQ artifacts (manifest + shards). Pending → Active → Deprecated lifecycle; immutable Active models; SHA‑256 integrity.
 
 ## Overview
 
 The Model Repository is the central storage canister for OHMS quantized models. It enforces the Pending → Active → Deprecated lifecycle and provides immutable storage for Active models.
 
-### Key Features
+### Features
 
-- **Governance-gated activation**: Models require approval to become Active
-- **Immutable Active storage**: No modifications allowed once activated
-- **Chunk-based serving**: Efficient ≤2 MiB shard retrieval
-- **Integrity verification**: SHA-256 hash validation for all chunks
-- **Audit trail**: Complete log of all model operations
+- Governance‑gated activation
+- Immutable Active storage
+- Chunk serving (≤ 2 MiB)
+- SHA‑256 integrity checks
+- Audit log
 
 ## Architecture
 
@@ -22,21 +20,13 @@ The Model Repository is the central storage canister for OHMS quantized models. 
 Upload → Pending → [Governance Vote] → Active → [Optional] Deprecated
 ```
 
-## API Surface
+## API
 
-### Upload Operations
-- `submit_model()` - Upload model artifacts (Pending state)
-- `add_authorized_uploader()` - Grant upload permissions
+Upload: `submit_model`, `submit_quantized_model`, `add_authorized_uploader`
 
-### Activation Operations  
-- `activate_model()` - Move Pending → Active (governance-gated)
-- `deprecate_model()` - Move Active → Deprecated
+Lifecycle: `activate_model`, `deprecate_model`
 
-### Query Operations
-- `get_manifest()` - Retrieve model manifest
-- `get_chunk()` - Retrieve specific shard chunk
-- `list_models()` - List models by state filter
-- `get_audit_log()` - View operation history
+Query: `get_manifest`, `get_model_meta`, `get_chunk`, `list_models(state?)`, `list_quantized_models`, `get_global_stats`, `get_audit_log`, `get_compression_stats`
 
 ## Deployment
 
@@ -45,16 +35,33 @@ Upload → Pending → [Governance Vote] → Active → [Optional] Deprecated
 - Rust toolchain
 - Internet Computer network access
 
-### Build & Deploy
+### Build & Deploy (local)
 ```bash
 dfx build ohms_model
 dfx deploy ohms_model --network local
 ```
 
-### Initialize
+### Initialize uploader
 ```bash
 # Add initial authorized uploader
-dfx canister call ohms_model add_authorized_uploader '("principal-id")'
+dfx canister call ohms_model add_authorized_uploader '("<principal>")'
+```
+
+### Mainnet quick publish
+```bash
+# Pack APQ artifact from CLI (ohms-adaptq)
+apq pack --input /path/model.sapq --out /tmp/model_artifact.json
+
+# Publish to ohms_model canister
+apq publish \
+  --canister <CANISTER_ID> \
+  --model-id <model_id> \
+  --source-model "hf:owner/repo:file" \
+  --artifact /tmp/model_artifact.json \
+  --network https://ic0.app --identity <dfx_identity_name>
+
+# Activate
+dfx canister call <CANISTER_ID> activate_model '("<model_id>")' --network ic
 ```
 
 ## Development
