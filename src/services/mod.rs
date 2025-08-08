@@ -89,8 +89,9 @@ impl ModelRepository {
             }
         }
 
-        let model = self.models.get_mut(&model_id.0)
-            .ok_or("Model not found")?;
+        // Source of truth is stable storage; load, mutate, then persist
+        let mut model = storage_stable::get_manifest(&model_id.0)
+            .map_err(|_| "Model not found".to_string())?;
 
         if !matches!(model.state, ModelState::Pending) {
             return Err("Model must be in Pending state".to_string());
@@ -98,6 +99,11 @@ impl ModelRepository {
 
         model.state = ModelState::Active;
         model.activated_at = Some(time());
+        // Persist updated manifest to stable storage
+        storage_stable::store_manifest(&model_id.0, &model)
+            .map_err(|e| format!("Persist failed: {:?}", e))?;
+        // Update in-memory mirror
+        self.models.insert(model_id.0.clone(), model.clone());
 
         let event = AuditEvent {
             event_type: AuditEventType::Activate,
