@@ -56,8 +56,8 @@ fn submit_model(upload: ModelUpload) -> Result<String, String> {
 fn submit_quantized_model(
     model_id: String,
     source_model: String,
-    quantized_model: SuperQuantizedModel,
-    verification: APQVerificationReport,
+    quantized_model: NOVAQModel,
+    verification: NOVAQVerificationReport,
 ) -> Result<String, String> {
     let actor = caller().to_text();
     

@@ -2,40 +2,15 @@ use candid::{CandidType, Deserialize};
 use serde::Serialize;
 use sha2::Digest;
 
-// Minimal inline definitions to avoid heavy engine dependency in the canister.
-#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
-pub struct SuperQuantizedModel {
-    pub architecture: QuantArch,
-    pub compressed_model: CompressedModel,
-    pub verification: Verification,
-}
-
-#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
-pub struct QuantArch {
-    pub family: String,
-    pub layers: u32,
-    pub hidden_size: u32,
-}
-
-#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
-pub struct CompressedModel {
-    pub data: Vec<u8>,
-    pub metadata: CompressedMeta,
-}
-
-#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
-pub struct CompressedMeta {
-    pub compression_ratio: f32,
-    pub original_size: u64,
-    pub compressed_size: u64,
-}
+// NOVAQ types imported from ohms-adaptq
+use ohms_adaptq::{NOVAQModel, NOVAQConfig, WeightMatrix};
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct Verification {
     pub bit_accuracy: f32,
 }
 
-pub type APQVerificationReport = Verification;
+pub type NOVAQVerificationReport = Verification;
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct ModelId(pub String);
@@ -67,13 +42,12 @@ pub struct ModelManifest {
     pub activated_at: Option<u64>,
     // Quantization info
     pub compression_type: CompressionType,
-    pub quantized_model: Option<SuperQuantizedModel>, // Direct use of ohms-adaptq type
+    pub quantized_model: Option<NOVAQModel>, // Direct use of ohms-adaptq type
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub enum CompressionType {
-    LegacyAPQ,
-    SuperAPQ,
+    NOVAQ,
     Uncompressed,
 }
 
@@ -109,7 +83,7 @@ pub struct ModelUpload {
     pub meta: ModelMeta,
     pub chunks: Vec<ChunkData>,
     pub signature: Option<String>,
-    pub verification_report: Option<APQVerificationReport>, // Use ohms-adaptq type
+    pub verification_report: Option<NOVAQVerificationReport>, // Use ohms-adaptq type
 }
 
 // Enhanced badge system
@@ -193,19 +167,23 @@ pub type ModelResult<T> = Result<T, ModelError>;
 impl ModelManifest {
     /// Check if model is quantized
     pub fn is_quantized(&self) -> bool {
-        matches!(self.compression_type, CompressionType::SuperAPQ | CompressionType::LegacyAPQ)
+        matches!(self.compression_type, CompressionType::NOVAQ)
     }
     
     /// Get compression ratio if available
     pub fn get_compression_ratio(&self) -> Option<f32> {
         self.quantized_model.as_ref()
-            .map(|model| model.compressed_model.metadata.compression_ratio)
+            .map(|model| model.compression_ratio)
     }
     
-    /// Get compressed size in MB
+    /// Get compressed size in MB (estimated from compression ratio)
     pub fn get_size_mb(&self) -> Option<f32> {
+        // Estimate size based on compression ratio and typical model sizes
         self.quantized_model.as_ref()
-            .map(|model| model.compressed_model.metadata.compressed_size as f32 / 1_000_000.0)
+            .map(|model| {
+                let estimated_original_size = 8000.0; // 8GB typical for large models
+                estimated_original_size * (1.0 - model.compression_ratio / 100.0)
+            })
     }
 }
 
@@ -214,8 +192,8 @@ impl ModelUpload {
     pub fn from_quantized_model(
         model_id: String,
         source_model: String,
-        quantized_model: SuperQuantizedModel,
-        verification: APQVerificationReport,
+        quantized_model: NOVAQModel,
+        verification: NOVAQVerificationReport,
     ) -> Self {
         let model_id = ModelId(model_id);
         let timestamp = ic_cdk::api::time();
@@ -228,7 +206,7 @@ impl ModelUpload {
         let mut offset: u64 = 0;
         let mut hasher = sha2::Sha256::new();
         for (idx, part) in bytes.chunks(max_chunk).enumerate() {
-            let chunk_id = format!("apq-{:06}", idx);
+            let chunk_id = format!("novaq-{:06}", idx);
             let sha = sha2::Sha256::digest(part);
             hasher.update(sha);
             chunks.push(ChunkData { chunk_id: chunk_id.clone(), data: part.to_vec() });
@@ -250,32 +228,26 @@ impl ModelUpload {
             state: ModelState::Pending,
             uploaded_at: timestamp,
             activated_at: None,
-            compression_type: CompressionType::SuperAPQ,
+            compression_type: CompressionType::NOVAQ,
             // Keep metadata but do not rely on embedded bytes for serving
-            quantized_model: Some(SuperQuantizedModel {
-                architecture: quantized_model.architecture.clone(),
-                compressed_model: CompressedModel {
-                    // Avoid duplicating large data in manifest; store empty to reduce RAM footprint
-                    data: Vec::new(),
-                    metadata: quantized_model.compressed_model.metadata.clone(),
-                },
-                verification: quantized_model.verification.clone(),
+            quantized_model: Some(NOVAQModel {
+                config: quantized_model.config.clone(),
+                compression_ratio: quantized_model.compression_ratio,
+                bit_accuracy: quantized_model.bit_accuracy,
+                codebooks: quantized_model.codebooks.clone(),
+                outliers: quantized_model.outliers.clone(),
             }),
         };
 
         let meta = ModelMeta {
-            family: manifest
-                .quantized_model
-                .as_ref()
-                .map(|q| q.architecture.family.clone())
-                .unwrap_or_else(|| "unknown".to_string()),
-            arch: format!("{}-layers", quantized_model.architecture.layers),
+            family: "novaq".to_string(),
+            arch: format!("novaq-{}", quantized_model.config.num_subspaces),
             tokenizer_id: source_model.clone(),
             vocab_size: 32000, // Default
-            ctx_window: quantized_model.architecture.hidden_size as u32,
+            ctx_window: 4096, // Default context window for NOVAQ models
             license: "MIT".to_string(),
             quantization_info: QuantizationInfo {
-                method: "ohms-adaptq-v2".to_string(),
+                method: "novaq-v2".to_string(),
                 quantizer_version: "2.0.0".to_string(),
                 quantization_date: timestamp,
                 source_model,

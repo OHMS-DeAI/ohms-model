@@ -18,4 +18,5 @@ serde_json = "1.0"
 sha2 = "0.10"
 hex = "0.4"
 
-# No on-chain dependency on the quantization engine; the canister stores artifacts only.
+# NOVAQ dependency for model types
+ohms-adaptq = { path = "../ohms-adaptq" }
