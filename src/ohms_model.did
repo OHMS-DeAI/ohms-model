@@ -11,6 +11,8 @@ type AuditEventType = variant {
   Activate;
   Upload;
   Deprecate;
+  Quantization;
+  Verification;
 };
 type ChunkData = record { data : blob; chunk_id : text };
 type ChunkInfo = record {
@@ -19,6 +21,7 @@ type ChunkInfo = record {
   size : nat64;
   offset : nat64;
 };
+type CompressionType = variant { NOVAQ; Uncompressed };
 type ModelManifest = record {
   activated_at : opt nat64;
   version : text;
@@ -27,6 +30,8 @@ type ModelManifest = record {
   chunks : vec ChunkInfo;
   model_id : text;
   uploaded_at : nat64;
+  compression_type : CompressionType;
+  quantized_model : opt NOVAQModel;
 };
 type ModelMeta = record {
   tokenizer_id : text;
@@ -35,6 +40,7 @@ type ModelMeta = record {
   ctx_window : nat32;
   license : text;
   family : text;
+  quantization_info : QuantizationInfo;
 };
 type ModelState = variant { Active; Deprecated; Pending };
 type ModelUpload = record {
@@ -43,16 +49,62 @@ type ModelUpload = record {
   chunks : vec ChunkData;
   model_id : text;
   manifest : ModelManifest;
+  verification_report : opt NOVAQVerificationReport;
+};
+type ModelStats = record {
+  total_models : nat64;
+  quantized_models : nat64;
+  total_size_saved_gb : float32;
+  total_energy_saved : float32;
+  average_compression_ratio : float32;
+  average_capability_retention : float32;
+};
+type NOVAQConfig = record {
+  target_bits : float32;
+  num_subspaces : nat32;
+  codebook_size_l1 : nat32;
+  codebook_size_l2 : nat32;
+  outlier_threshold : float32;
+  teacher_model_path : opt text;
+  refinement_iterations : nat32;
+  kl_weight : float32;
+  cosine_weight : float32;
+  learning_rate : float32;
+  seed : nat64;
+};
+type NOVAQModel = record {
+  config : NOVAQConfig;
+  compression_ratio : float32;
+  bit_accuracy : float32;
+  codebooks : vec vec float32;
+  outliers : vec float32;
+};
+type NOVAQVerificationReport = record {
+  bit_accuracy : float32;
+};
+type QuantizationInfo = record {
+  method : text;
+  quantizer_version : text;
+  quantization_date : nat64;
+  source_model : text;
 };
 type Result = variant { Ok : text; Err : text };
 service : () -> {
   activate_model : (text) -> (Result);
   add_authorized_uploader : (text) -> (Result);
+  cleanup_deprecated_models : () -> (Result);
   deprecate_model : (text) -> (Result);
   get_audit_log : () -> (vec AuditEvent) query;
   get_chunk : (text, text) -> (opt blob) query;
+  get_compression_stats : () -> (text) query;
+  get_global_stats : () -> (ModelStats) query;
   get_manifest : (text) -> (opt ModelManifest) query;
+  get_model_meta : (text) -> (opt ModelMeta) query;
   health : () -> (text) query;
   list_models : (opt ModelState) -> (vec ModelManifest) query;
+  list_quantized_models : () -> (vec ModelManifest) query;
+  query_models_by_compression : (float32) -> (vec text) query;
+  query_models_by_size : (float32) -> (vec text) query;
   submit_model : (ModelUpload) -> (Result);
+  submit_quantized_model : (text, text, NOVAQModel, NOVAQVerificationReport) -> (Result);
 }

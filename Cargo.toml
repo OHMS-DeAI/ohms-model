@@ -18,5 +18,5 @@ serde_json = "1.0"
 sha2 = "0.10"
 hex = "0.4"
 
-# NOVAQ dependency for model types
-ohms-adaptq = { path = "../ohms-adaptq" }
+# Serialization
+bincode = "1.3"

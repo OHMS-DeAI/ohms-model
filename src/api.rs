@@ -1,4 +1,5 @@
 use crate::{domain::*, services::*};
+use crate::domain::NOVAQModelCandid;
 use candid::{candid_method, CandidType, Deserialize};
 use ic_cdk::{api::caller, query, update};
 use ic_cdk_macros::{init, post_upgrade, pre_upgrade};
@@ -56,7 +57,7 @@ fn submit_model(upload: ModelUpload) -> Result<String, String> {
 fn submit_quantized_model(
     model_id: String,
     source_model: String,
-    quantized_model: NOVAQModel,
+    quantized_model: NOVAQModelCandid,
     verification: NOVAQVerificationReport,
 ) -> Result<String, String> {
     let actor = caller().to_text();
@@ -65,7 +66,7 @@ fn submit_quantized_model(
     let upload = ModelUpload::from_quantized_model(
         model_id,
         source_model,
-        quantized_model,
+        quantized_model.into(),
         verification,
     );
     

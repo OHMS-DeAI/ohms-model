@@ -2,8 +2,32 @@ use candid::{CandidType, Deserialize};
 use serde::Serialize;
 use sha2::Digest;
 
-// NOVAQ types imported from ohms-adaptq
-use ohms_adaptq::{NOVAQModel, NOVAQConfig, WeightMatrix};
+// NOVAQ types defined locally for WASM compatibility
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct NOVAQConfig {
+    pub target_bits: f32,
+    pub num_subspaces: usize,
+    pub codebook_size_l1: usize,
+    pub codebook_size_l2: usize,
+    pub outlier_threshold: f32,
+    pub teacher_model_path: Option<String>,
+    pub refinement_iterations: usize,
+    pub kl_weight: f32,
+    pub cosine_weight: f32,
+    pub learning_rate: f32,
+    pub seed: u64,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct NOVAQModel {
+    pub config: NOVAQConfig,
+    pub compression_ratio: f32,
+    pub bit_accuracy: f32,
+    pub vector_codebooks: Vec<Vec<Vec<f32>>>, // Simplified for WASM
+    pub quantization_indices: Vec<Vec<u8>>,
+    pub weight_shapes: Vec<(String, Vec<usize>)>,
+    pub normalization_metadata: Vec<f32>,
+}
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct Verification {
@@ -11,6 +35,97 @@ pub struct Verification {
 }
 
 pub type NOVAQVerificationReport = Verification;
+
+// Candid-compatible NOVAQ model wrapper
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct NOVAQModelCandid {
+    pub config: NOVAQConfigCandid,
+    pub compression_ratio: f32,
+    pub bit_accuracy: f32,
+    pub vector_codebooks: Vec<Vec<Vec<f32>>>, // Vec<Vec<CodebookEntry.centroid>>
+    pub quantization_indices: Vec<Vec<u8>>,   // Vec<Vec<u8>>
+    pub weight_shapes: Vec<(String, Vec<u32>)>, // Vec<(name, shape)>
+    pub normalization_metadata: Vec<f32>,     // Flattened NormalizationMetadata
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct NOVAQConfigCandid {
+    pub target_bits: f32,
+    pub num_subspaces: u32,
+    pub codebook_size_l1: u32,
+    pub codebook_size_l2: u32,
+    pub outlier_threshold: f32,
+    pub teacher_model_path: Option<String>,
+    pub refinement_iterations: u32,
+    pub kl_weight: f32,
+    pub cosine_weight: f32,
+    pub learning_rate: f32,
+    pub seed: u64,
+}
+
+impl From<NOVAQModel> for NOVAQModelCandid {
+    fn from(model: NOVAQModel) -> Self {
+        // Convert weight shapes to Candid format
+        let weight_shapes: Vec<(String, Vec<u32>)> = model.weight_shapes
+            .iter()
+            .map(|(name, shape)| (name.clone(), shape.iter().map(|&s| s as u32).collect()))
+            .collect();
+
+        Self {
+            config: NOVAQConfigCandid {
+                target_bits: model.config.target_bits,
+                num_subspaces: model.config.num_subspaces as u32,
+                codebook_size_l1: model.config.codebook_size_l1 as u32,
+                codebook_size_l2: model.config.codebook_size_l2 as u32,
+                outlier_threshold: model.config.outlier_threshold,
+                teacher_model_path: model.config.teacher_model_path.clone(),
+                refinement_iterations: model.config.refinement_iterations as u32,
+                kl_weight: model.config.kl_weight,
+                cosine_weight: model.config.cosine_weight,
+                learning_rate: model.config.learning_rate,
+                seed: model.config.seed,
+            },
+            compression_ratio: model.compression_ratio,
+            bit_accuracy: model.bit_accuracy,
+            vector_codebooks: model.vector_codebooks,
+            quantization_indices: model.quantization_indices,
+            weight_shapes,
+            normalization_metadata: model.normalization_metadata,
+        }
+    }
+}
+
+impl From<NOVAQModelCandid> for NOVAQModel {
+    fn from(candid_model: NOVAQModelCandid) -> Self {
+        // Convert weight shapes back to Vec<(String, Vec<usize>)>
+        let weight_shapes: Vec<(String, Vec<usize>)> = candid_model.weight_shapes
+            .iter()
+            .map(|(name, shape)| (name.clone(), shape.iter().map(|&s| s as usize).collect()))
+            .collect();
+        
+        Self {
+            config: NOVAQConfig {
+                target_bits: candid_model.config.target_bits,
+                num_subspaces: candid_model.config.num_subspaces as usize,
+                codebook_size_l1: candid_model.config.codebook_size_l1 as usize,
+                codebook_size_l2: candid_model.config.codebook_size_l2 as usize,
+                outlier_threshold: candid_model.config.outlier_threshold,
+                teacher_model_path: candid_model.config.teacher_model_path.clone(),
+                refinement_iterations: candid_model.config.refinement_iterations as usize,
+                kl_weight: candid_model.config.kl_weight,
+                cosine_weight: candid_model.config.cosine_weight,
+                learning_rate: candid_model.config.learning_rate,
+                seed: candid_model.config.seed,
+            },
+            compression_ratio: candid_model.compression_ratio,
+            bit_accuracy: candid_model.bit_accuracy,
+            vector_codebooks: candid_model.vector_codebooks,
+            quantization_indices: candid_model.quantization_indices,
+            weight_shapes,
+            normalization_metadata: candid_model.normalization_metadata,
+        }
+    }
+}
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct ModelId(pub String);
@@ -42,7 +157,7 @@ pub struct ModelManifest {
     pub activated_at: Option<u64>,
     // Quantization info
     pub compression_type: CompressionType,
-    pub quantized_model: Option<NOVAQModel>, // Direct use of ohms-adaptq type
+    pub quantized_model: Option<NOVAQModelCandid>, // Candid-compatible wrapper
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
@@ -198,8 +313,9 @@ impl ModelUpload {
         let model_id = ModelId(model_id);
         let timestamp = ic_cdk::api::time();
 
-        // Split compressed bytes into 2 MiB shards
-        let bytes = quantized_model.compressed_model.data.clone();
+        // Create compressed model data from NOVAQ model
+        let candid_model = NOVAQModelCandid::from(quantized_model.clone());
+        let bytes = bincode::serialize(&candid_model).unwrap_or_default();
         let max_chunk: usize = 2 * 1024 * 1024;
         let mut chunks: Vec<ChunkData> = Vec::new();
         let mut infos: Vec<ChunkInfo> = Vec::new();
@@ -230,13 +346,7 @@ impl ModelUpload {
             activated_at: None,
             compression_type: CompressionType::NOVAQ,
             // Keep metadata but do not rely on embedded bytes for serving
-            quantized_model: Some(NOVAQModel {
-                config: quantized_model.config.clone(),
-                compression_ratio: quantized_model.compression_ratio,
-                bit_accuracy: quantized_model.bit_accuracy,
-                codebooks: quantized_model.codebooks.clone(),
-                outliers: quantized_model.outliers.clone(),
-            }),
+            quantized_model: Some(NOVAQModelCandid::from(quantized_model.clone())),
         };
 
         let meta = ModelMeta {

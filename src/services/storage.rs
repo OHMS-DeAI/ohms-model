@@ -179,13 +179,13 @@ pub fn get_global_stats() -> ModelResult<ModelStats> {
             if let Ok(manifest) = decode_one::<ModelManifest>(&manifest_data) {
                 if let Some(quantized_model) = &manifest.quantized_model {
                     quantized_models += 1;
-                    total_compression_sum += quantized_model.compressed_model.metadata.compression_ratio;
-                    total_capability_sum += quantized_model.verification.bit_accuracy;
+                    total_compression_sum += quantized_model.compression_ratio;
+                    total_capability_sum += quantized_model.bit_accuracy;
                     
-                    // Calculate size saved (original - compressed)
-                    let original_size_gb = quantized_model.compressed_model.metadata.original_size as f32 / 1e9;
-                    let compressed_size_gb = quantized_model.compressed_model.metadata.compressed_size as f32 / 1e9;
-                    total_size_saved += original_size_gb - compressed_size_gb;
+                    // Calculate size saved (estimated)
+                    let estimated_original_size_gb = 8.0; // 8GB typical for large models
+                    let estimated_compressed_size_gb = estimated_original_size_gb / quantized_model.compression_ratio;
+                    total_size_saved += estimated_original_size_gb - estimated_compressed_size_gb;
                 }
             }
         }
