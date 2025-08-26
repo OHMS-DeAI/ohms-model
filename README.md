@@ -1,12 +1,12 @@
 # OHMS Model Repository - NOVAQ Model Storage & Distribution
 
-[![OHMS 2.0](https://img.shields.io/badge/OHMS-2.0-blue.svg)](https://github.com/ohms-2-0)
+[![OHMS 2.0](https://img.shields.io/badge/OHMS-2.0-blue.svg)](https://github.com/OHMS-DeAI)
 [![Internet Computer](https://img.shields.io/badge/Internet_Computer-ICP-blue.svg)](https://internetcomputer.org/)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://rust-lang.org/)
 
-**Canister ID:** `3aes4-xyaaa-aaaal-qsryq-cai`
-**Network:** Internet Computer Mainnet
-**Direct URL:** https://3aes4-xyaaa-aaaal-qsryq-cai.icp0.io/
+**Canister ID:** `3aes4-xyaaa-aaaal-qsryq-cai`\
+**Network:** Internet Computer Mainnet\
+**Direct URL:** https://3aes4-xyaaa-aaaal-qsryq-cai.icp0.io/\
 **Candid UI:** https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=3aes4-xyaaa-aaaal-qsryq-cai
 
 The OHMS Model Repository is the secure, governance-controlled storage system for NOVAQ-compressed AI models. This canister manages the complete lifecycle of AI models, from submission through validation to deployment, ensuring quality, security, and efficient distribution across the OHMS autonomous agent ecosystem.
@@ -612,7 +612,7 @@ pub struct AuditLogEntry {
 
 ### Community
 - [OHMS Discord](https://discord.gg/ohms)
-- [GitHub Repository](https://github.com/ohms-2-0/ohms-model)
+- [GitHub Repository](https://github.com/OHMS-DeAI/ohms-model)
 - [ICP Community Forum](https://forum.dfinity.org/)
 
 ---
